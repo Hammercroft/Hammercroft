@@ -1,4 +1,4 @@
-Check the contents of github.com/Hammercroft/Hammercroft to see my code dumps
+Check the contents of [github.com/Hammercroft/Hammercroft](https://github.com/Hammercroft/Hammercroft/tree/main) to see my code dumps
 
 - 👋 Hi, I’m @Hammercroft
 - 👀 I’m interested in Software Development & Game Development.
