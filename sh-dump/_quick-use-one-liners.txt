@@ -1,9 +1,10 @@
 !! USE AT YOUR OWN RISK !!
+The utility installs assume that ~/.local/bin is included in your PATH
 
 ---------------------------------------
 scalsprit.sh
 ---------------------------------------
 [Curl then Bash]
-curl -sSL https://raw.githubusercontent.com/Hammercroft/Hammercroft/main/sh-dumps/scalsprit.sh -o /tmp/scalsprit.sh && chmod +x /tmp/scalsprit.sh && /tmp/scalsprit.sh <sourcedir> <outputdir> <scale>
+curl -sSL https://raw.githubusercontent.com/Hammercroft/Hammercroft/main/sh-dump/scalsprit.sh -o /tmp/scalsprit.sh && chmod +x /tmp/scalsprit.sh && /tmp/scalsprit.sh <sourcedir> <outputdir> <scale>
 [scalsprit Utility Install]
-mkdir -p ~/.local/bin && curl -sSL https://raw.githubusercontent.com/Hammercroft/Hammercroft/main/sh-dumps/scalsprit.sh -o ~/.local/bin/scalsprit && chmod +x ~/.local/bin/scalsprit
+mkdir -p ~/.local/bin && curl -sSL https://raw.githubusercontent.com/Hammercroft/Hammercroft/main/sh-dump/scalsprit.sh -o ~/.local/bin/scalsprit && chmod +x ~/.local/bin/scalsprit
