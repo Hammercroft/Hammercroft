@@ -1,0 +1,9 @@
+!! USE AT YOUR OWN RISK !!
+
+---------------------------------------
+scalsprit.sh
+---------------------------------------
+[Curl then Bash]
+curl -sSL https://raw.githubusercontent.com/Hammercroft/Hammercroft/main/sh-dumps/scalsprit.sh -o /tmp/scalsprit.sh && chmod +x /tmp/scalsprit.sh && /tmp/scalsprit.sh <sourcedir> <outputdir> <scale>
+[scalsprit Utility Install]
+mkdir -p ~/.local/bin && curl -sSL https://raw.githubusercontent.com/Hammercroft/Hammercroft/main/sh-dumps/scalsprit.sh -o ~/.local/bin/scalsprit && chmod +x ~/.local/bin/scalsprit
