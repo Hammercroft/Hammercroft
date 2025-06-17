@@ -1,3 +1,5 @@
+Check the contents of github.com/Hammercroft/Hammercroft to see my code dumps
+
 - 👋 Hi, I’m @Hammercroft
 - 👀 I’m interested in Software Development & Game Development.
 - 🌱 I’m currently learning network optimizations for ROBLOX experiences.
