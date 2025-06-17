@@ -1,4 +1,5 @@
 !! USE AT YOUR OWN RISK !!
+Watch out for <placeholders> on the ends of Curl then Bash one-liners
 The utility installs assume that ~/.local/bin is included in your PATH
 
 ---------------------------------------
