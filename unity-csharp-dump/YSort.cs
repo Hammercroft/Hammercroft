@@ -1,5 +1,14 @@
 using UnityEngine;
 
+// YSort.cs
+// Y-Sorting component for 2d objects.
+
+// Made by Hammercroft (https://github.com/Hammercroft)
+
+// This work is dedicated to the public domain under the CC0 1.0 Universal Public Domain Dedication.
+// You are free to use, modify, distribute, and perform the work, even for commercial purposes, all without asking permission.
+// For more information, see: https://creativecommons.org/publicdomain/zero/1.0/
+
 [RequireComponent(typeof(SpriteRenderer))]
 public class YSort : MonoBehaviour
 {
