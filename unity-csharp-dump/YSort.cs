@@ -9,6 +9,7 @@ using UnityEngine;
 // You are free to use, modify, distribute, and perform the work, even for commercial purposes, all without asking permission.
 // For more information, see: https://creativecommons.org/publicdomain/zero/1.0/
 
+[ExecuteAlways]
 [RequireComponent(typeof(SpriteRenderer))]
 public class YSort : MonoBehaviour
 {
@@ -35,26 +36,38 @@ public class YSort : MonoBehaviour
 
     void LateUpdate()
     {
+        if (sr == null) sr = GetComponent<SpriteRenderer>();
+        if (sr.sprite == null) return;
+
         float yPos = transform.position.y;
+        float finalOffset = CalculateOffset();
 
-        float finalOffset = 0f;
+        yPos += finalOffset;
 
-        if (sr.sprite != null && useSpriteBottom)
+        // Sorting order based on Y position + offset
+        sr.sortingOrder = -(int)(yPos * sortingMultiplier);
+    }
+
+    private float CalculateOffset()
+    {
+        if (sr.sprite == null) return 0f;
+
+        if (useSpriteBottom)
         {
-            // Sprite bottom in local space
-            float bottomLocal = sr.sprite.bounds.min.y;
+            // Bottom of the sprite in *world units*
+            float bottomWorld = sr.bounds.min.y - transform.position.y;
 
             switch (offsetUnit)
             {
                 case OffsetUnit.World:
-                    finalOffset = bottomLocal * transform.lossyScale.y + offset;
-                    break;
+                    return bottomWorld + offset;
+
                 case OffsetUnit.Local:
-                    finalOffset = (bottomLocal + offset) * transform.lossyScale.y; // scale local offset
-                    break;
+                    return (sr.sprite.bounds.min.y + offset) * transform.lossyScale.y;
+
                 case OffsetUnit.Pixel:
-                    finalOffset = bottomLocal + (offset / sr.sprite.pixelsPerUnit);
-                    break;
+                    // Convert pixel offset into world units, scaled properly
+                    return bottomWorld + (offset / sr.sprite.pixelsPerUnit) * transform.lossyScale.y;
             }
         }
         else
@@ -62,20 +75,17 @@ public class YSort : MonoBehaviour
             switch (offsetUnit)
             {
                 case OffsetUnit.World:
-                    finalOffset = offset;
-                    break;
+                    return offset;
+
                 case OffsetUnit.Local:
-                    finalOffset = offset * transform.lossyScale.y; // scale local offset
-                    break;
+                    return offset * transform.lossyScale.y;
+
                 case OffsetUnit.Pixel:
-                    finalOffset = offset / sr.sprite.pixelsPerUnit;
-                    break;
+                    return (offset / sr.sprite.pixelsPerUnit) * transform.lossyScale.y;
             }
         }
 
-        yPos += finalOffset;
-
-        sr.sortingOrder = -(int)(yPos * sortingMultiplier);
+        return 0f;
     }
 
     private void OnDrawGizmos()
@@ -84,41 +94,7 @@ public class YSort : MonoBehaviour
         if (sr.sprite == null) return;
 
         Vector3 worldPos = transform.position;
-        float finalOffset = 0f;
-
-        if (sr.sprite != null && useSpriteBottom)
-        {
-            float bottomLocal = sr.sprite.bounds.min.y;
-
-            switch (offsetUnit)
-            {
-                case OffsetUnit.World:
-                    finalOffset = bottomLocal * transform.lossyScale.y + offset;
-                    break;
-                case OffsetUnit.Local:
-                    finalOffset = (bottomLocal + offset) * transform.lossyScale.y;
-                    break;
-                case OffsetUnit.Pixel:
-                    finalOffset = bottomLocal + (offset / sr.sprite.pixelsPerUnit);
-                    break;
-            }
-        }
-        else
-        {
-            switch (offsetUnit)
-            {
-                case OffsetUnit.World:
-                    finalOffset = offset;
-                    break;
-                case OffsetUnit.Local:
-                    finalOffset = offset * transform.lossyScale.y;
-                    break;
-                case OffsetUnit.Pixel:
-                    finalOffset = offset / sr.sprite.pixelsPerUnit;
-                    break;
-            }
-        }
-
+        float finalOffset = CalculateOffset();
         worldPos.y += finalOffset;
 
         // Draw reference point
