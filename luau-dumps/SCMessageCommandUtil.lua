@@ -1,0 +1,393 @@
+--!strict
+--[[
+	SCMessageCommandUtil
+	
+	WIP
+	
+	@Author: St0rmcast3r
+]]
+
+--[[
+
+================================================================================
+St0rmCast3r's Command Target Selectors
+================================================================================
+
+SYNTAX STRUCTURE
+----------------
+Format: %<Selector><Filter><Filter>...
+
+* The "%" prefix is optional but standard for commands.
+* Selectors are parsed from left to right.
+* Filters apply ONLY to the selector immediately preceding them.
+
+================================================================================
+1. BASE SELECTORS (TARGETS)
+================================================================================
+These define the pool of entities to select. You can chain them to combine results.
+
+  a   -> All Players
+         Selects every player currently in the server.
+
+  e   -> Entities (Global)
+         Selects ALL characters in Workspace (Players + NPCs).
+         * Requirement: Must have a Humanoid and HumanoidRootPart.
+
+  n   -> NPCs
+         Selects characters in Workspace that are NOT players.
+         * Requirement: Must have a Humanoid and HumanoidRootPart.
+
+  s   -> Self
+         Selects the player executing the command.
+
+  $   -> Server
+         Selects the Server itself (sets a specific server-flag).
+
+================================================================================
+2. TAG FILTERS [Square Brackets]
+================================================================================
+Filters the previous selector based on CollectionService Tags.
+Supports comma-separated lists.
+
+  [Tag]           -> Inclusion
+                     Keeps entities that possess this tag.
+
+  [TagA,TagB]     -> OR Logic (Inclusion)
+                     Keeps entities that have EITHER TagA OR TagB.
+
+  [!Tag]          -> Exclusion
+                     Removes entities that possess this tag.
+
+  [!TagA,TagB]    -> OR Logic (Exclusion)
+                     Removes entities that have EITHER TagA OR TagB.
+
+================================================================================
+3. STATE FILTERS (Parentheses)
+================================================================================
+Filters the previous selector based on hard-coded script conditions.
+All listed conditions must be true to pass (AND Logic).
+
+  (isDead)        -> Selects entities where Humanoid Health <= 0.
+  
+  (isNotNeutral)  -> Selects entities that are on a valid Team.
+                     * Players: Checks if Player.Neutral is false.
+                     * NPCs: Checks if they have a tag starting with "Team:".
+
+================================================================================
+4. LOGIC & CHAINING EXAMPLES
+================================================================================
+
+Basic Combinations:
+  %sn             -> Selects Self AND all NPCs.
+  %$a             -> Selects Server AND all Players.
+
+Scope of Filters:
+  %a[Admin]n      -> Selects (All Players with "Admin" tag) + (All NPCs).
+                     * Note: The [Admin] filter only applied to 'a', not 'n'.
+
+Specific Scenarios:
+  %a(isDead)      -> All players who are currently dead.
+  
+  %n[Enemy]       -> NPCs with the "Enemy" tag.
+  
+  %e[!Stunned]    -> Everyone (Players+NPCs) who is NOT tagged "Stunned".
+  
+  %s(isNotNeutral)-> Self, but only if on a team.
+  
+  %n(isDead)[Boss]-> NPCs that are Dead AND have the "Boss" tag.
+]]
+local module = {}
+
+local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
+
+export type selectionResult = {
+	isServerSelected: boolean,
+	selectedEntriesOtherThanServer: {[string]: {name: string, playerInstance: Player?, characterBasePart: BasePart?}},
+	error: string?
+}
+
+-- Helper function to get character HRP
+local function getCharacterHRP(character: Model?): BasePart?
+	if not character then return nil end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	return if hrp and hrp:IsA("BasePart") then hrp else nil
+end
+
+-- Helper function to check if character is dead
+local function isCharacterDead(character: Model?): boolean
+	if not character then return true end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	return not humanoid or humanoid.Health <= 0
+end
+
+-- Helper function to check if player is dead
+local function isPlayerDead(player: Player): boolean
+	return isCharacterDead(player.Character)
+end
+
+-- Helper function to check if player/character is neutral
+local function isNeutral(player: Player?, hrp: BasePart?): boolean
+	if player then
+		return player.Neutral or player.Team == nil
+	end
+	-- For NPCs, check if they have any Team: tags
+	if hrp then
+		for _, tag in CollectionService:GetTags(hrp) do
+			if string.sub(tag, 1, 5) == "Team:" then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+-- Helper function to check if entity has tag
+local function hasTag(hrp: BasePart?, tag: string): boolean
+	if not hrp then return false end
+	return CollectionService:HasTag(hrp, tag)
+end
+
+-- Helper function to parse conditions
+local function parseList(str: string): {string}
+	return string.split(str, ",")
+end
+
+-- Internal processing function (can throw errors)
+local function processSelectorInternal(selector: string, selfPlayer: Player?): selectionResult
+	local result: selectionResult = {
+		isServerSelected = false,
+		selectedEntriesOtherThanServer = {},
+		error = nil
+	}
+
+	-- Remove leading % if present
+	if string.sub(selector, 1, 1) == "%" then
+		selector = string.sub(selector, 2)
+	end
+
+	-- Validate selector is not empty
+	if #selector == 0 then
+		error("Selector cannot be empty")
+	end
+
+	-- Parse the selector to identify all selector tokens and their filters
+	local i = 1
+
+	while i <= #selector do
+		local char = string.sub(selector, i, i)
+		local tempPool: {[string]: {name: string, playerInstance: Player?, characterBasePart: BasePart?}} = {}
+
+		-- Handle selector types (a, e, n, s, $)
+		if char == "a" then
+			-- All players
+			for _, player in Players:GetPlayers() do
+				local hrp = getCharacterHRP(player.Character)
+				tempPool[tostring(player.UserId)] = {
+					name = player.Name,
+					playerInstance = player,
+					characterBasePart = hrp
+				}
+			end
+			i += 1
+
+		elseif char == "e" then
+			-- All workspace characters with Humanoid and HRP
+			for _, child in workspace:GetChildren() do
+				if child:IsA("Model") then
+					local humanoid = child:FindFirstChildOfClass("Humanoid")
+					local hrp = getCharacterHRP(child)
+					if humanoid and hrp then
+						local player = Players:GetPlayerFromCharacter(child)
+						local key = if player then tostring(player.UserId) else child:GetDebugId()
+						tempPool[key] = {
+							name = child.Name,
+							playerInstance = player,
+							characterBasePart = hrp
+						}
+					end
+				end
+			end
+			i += 1
+
+		elseif char == "n" then
+			-- All workspace characters excluding players
+			for _, child in workspace:GetChildren() do
+				if child:IsA("Model") then
+					local humanoid = child:FindFirstChildOfClass("Humanoid")
+					local hrp = getCharacterHRP(child)
+					local player = Players:GetPlayerFromCharacter(child)
+					if humanoid and hrp and not player then
+						tempPool[child:GetDebugId()] = {
+							name = child.Name,
+							playerInstance = nil,
+							characterBasePart = hrp
+						}
+					end
+				end
+			end
+			i += 1
+
+		elseif char == "s" then
+			-- Self
+			if not selfPlayer then
+				error("Selector 's' (self) requires a player context")
+			end
+			local hrp = getCharacterHRP(selfPlayer.Character)
+			tempPool[tostring(selfPlayer.UserId)] = {
+				name = selfPlayer.Name,
+				playerInstance = selfPlayer,
+				characterBasePart = hrp
+			}
+			i += 1
+
+		elseif char == "$" then
+			-- Server
+			result.isServerSelected = true
+			i += 1
+
+		elseif char == "[" or char == "(" then
+			error(`Filter '{char}' found without a preceding selector at position {i}`)
+
+		else
+			error(`Unknown selector character '{char}' at position {i}`)
+		end
+
+		-- Now apply all filters that follow this selector
+		while i <= #selector do
+			local nextChar = string.sub(selector, i, i)
+
+			if nextChar == "[" then
+				-- Tag inclusion or exclusion
+				local closeIdx = string.find(selector, "%]", i + 1)
+				if not closeIdx then
+					error(`Unclosed tag filter '[' at position {i}`)
+				end
+
+				local tagContent = string.sub(selector, i + 1, closeIdx - 1)
+				if #tagContent == 0 then
+					error(`Empty tag filter at position {i}`)
+				end
+
+				local isExclusion = string.sub(tagContent, 1, 1) == "!"
+				if isExclusion then
+					tagContent = string.sub(tagContent, 2)
+					if #tagContent == 0 then
+						error(`Empty exclusion tag filter at position {i}`)
+					end
+				end
+
+				local tags = parseList(tagContent)
+
+				-- Apply tag filter to tempPool
+				local filtered = {}
+				for key, entry in tempPool do
+					local matchesAnyTag = false
+					for _, tag in tags do
+						if hasTag(entry.characterBasePart, tag) then
+							matchesAnyTag = true
+							break
+						end
+					end
+
+					if isExclusion then
+						if not matchesAnyTag then
+							filtered[key] = entry
+						end
+					else
+						if matchesAnyTag then
+							filtered[key] = entry
+						end
+					end
+				end
+				tempPool = filtered
+
+				i = closeIdx + 1
+
+			elseif nextChar == "(" then
+				-- Condition restrictions
+				local closeIdx = string.find(selector, "%)", i + 1)
+				if not closeIdx then
+					error(`Unclosed condition filter '(' at position {i}`)
+				end
+
+				local condContent = string.sub(selector, i + 1, closeIdx - 1)
+				if #condContent == 0 then
+					error(`Empty condition filter at position {i}`)
+				end
+
+				local conditions = parseList(condContent)
+
+				-- Apply conditions to tempPool
+				local filtered = {}
+				for key, entry in tempPool do
+					local passes = true
+
+					for _, condition in conditions do
+						if condition == "isDead" then
+							if entry.playerInstance then
+								if not isPlayerDead(entry.playerInstance) then
+									passes = false
+									break
+								end
+							else
+								if not isCharacterDead(entry.characterBasePart and entry.characterBasePart.Parent :: Model) then
+									passes = false
+									break
+								end
+							end
+
+						elseif condition == "isNotNeutral" then
+							if isNeutral(entry.playerInstance, entry.characterBasePart) then
+								passes = false
+								break
+							end
+						else
+							error(`Unknown condition '{condition}' in filter at position {i}`)
+						end
+					end
+
+					if passes then
+						filtered[key] = entry
+					end
+				end
+				tempPool = filtered
+
+				i = closeIdx + 1
+
+			else
+				-- Not a filter, break to process next selector
+				break
+			end
+		end
+
+		-- Merge tempPool into result
+		for key, entry in tempPool do
+			result.selectedEntriesOtherThanServer[key] = entry
+		end
+	end
+
+	return result
+end
+
+-- Public function with error handling
+function module:processSelector(selector: string, selfPlayer: Player?): selectionResult
+	local success, result = pcall(processSelectorInternal, selector, selfPlayer)
+
+	if success then
+		return result
+	else
+		-- Return error result
+		return {
+			isServerSelected = false,
+			selectedEntriesOtherThanServer = {},
+			error = tostring(result)
+		}
+	end
+end
+
+function module.sendMessage(player : Player, message : string)
+	
+end
+
+return module
