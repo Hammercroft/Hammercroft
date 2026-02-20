@@ -2,7 +2,7 @@ Check the contents of [github.com/Hammercroft/Hammercroft](https://github.com/Ha
 
 Jack-of-many-trades, master of a few.
 Scrambling for provenance.
-*1/3rd vibecoder.*
+~~*1/3rd vibecoder.*~~(do not fucking buy Google AI Pro)
 
 Programming Languages that I am most familiar with:
  - Java
